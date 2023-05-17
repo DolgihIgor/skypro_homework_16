@@ -206,7 +206,70 @@ def orders():
 
         return '', 204
 
-# @app.route('/orders/<int:oid>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/orders/<int:oid>', methods=['GET', 'PUT', 'DELETE'])
+def order(oid: int):
+    if request.method == 'GET':
+        o = Order.query.get(oid)
+        return o.to_dict()
+    elif request.method == 'DELETE':
+        o = Order.query.get(oid)
+        db.session.delete(o)
+        db.session.commit()
+        return '', 204
+    elif request.method == 'PUT':
+        order_data = json.loads(request.data)
+        u = Order.query.get(oid)
+        u.name = order_data['order_data']
+        u.description = order_data['order_data']
+        u.start_date = datetime.strptime(order_data['start_date'], "%m/%d/%Y")
+        u.end_date = datetime.strptime(order_data['end_date'], "%m/%d/%Y")
+        u.address = order_data['order_data']
+        u.price = order_data['order_data']
+        u.customer_id = order_data['order_data']
+        u.executor_id = order_data['order_data']
+
+        db.session.add(u)
+        db.session.commit()
+        return '', 204
+
+
+@app.route('/offers', methods=['GET', 'POST'])
+def offers():
+    if request.method == "GET":
+        res = []
+        for u in Offer.query.all():
+            res.append(u.to_dict())
+        return json.dumps(res), 200
+    elif request.method == 'POST':
+        offer_data = json.loads(request.data)
+        new_offer = Offer(
+            id=offer_data['id'],
+            order_id=offer_data['order_id'],
+            executor_id=offer_data['executor_id'],
+        )
+        db.session.add(new_offer)
+        db.session.commit()
+        return '', 201
+
+
+@app.route('/offers/<int:oid>', methods=['GET', 'PUT', 'DELETE'])
+def offer(oid: int):
+    if request.method == 'GET':
+        return json.dumps(Offer.query.get(oid).to_dict())
+    elif request.method == 'DELETE':
+        u = Offer.query.get(oid)
+        db.session.delete(u)
+        db.session.commit()
+        return '', 204
+    elif request.method == 'PUT':
+        order_data = json.loads(request.data)
+        u = Offer.query.get(oid)
+        u.order_id = order_data['order_id']
+        u.executor_id = order_data['executor_id']
+
+        db.session.add(u)
+        db.session.commit()
+        return '', 204
 
 if __name__ == '__main__':
     main()
