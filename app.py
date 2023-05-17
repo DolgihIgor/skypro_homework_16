@@ -1,8 +1,8 @@
 import json
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from raw_data import users, orders, offers
 from datetime import datetime
+import raw_data
 
 
 app = Flask(__name__)
@@ -21,6 +21,17 @@ class User(db.Model):
     role = db.Column(db.String(50))
     phone = db.Column(db.String(50))
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'age': self.age,
+            'email': self.email,
+            'role': self.role,
+            'phone': self.phone,
+        }
+
 
 class Order(db.Model):
     __tablename__ = 'order'
@@ -34,12 +45,32 @@ class Order(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     executor_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'address': self.address,
+            'price': self.price,
+            'customer_id': self.customer_id,
+            'executor_id': self.executor_id,
+        }
+
 
 class Offer(db.Model):
     __tablename__ = 'offer'
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     executor_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'executor_id': self.order_id,
+        }
 
 with app.app_context():
     db.create_all()
@@ -53,7 +84,7 @@ def main():
 
 def insert_data():
     new_users = []
-    for user in users:
+    for user in raw_data.users:
         new_users.append(
             User(
                 id = user['id'],
@@ -70,7 +101,7 @@ def insert_data():
             db.session.add_all(new_users)
 
     new_orders = []
-    for order in orders:
+    for order in raw_data.orders:
         new_orders.append(
             Order(
                 id = order['id'],
@@ -89,7 +120,7 @@ def insert_data():
             db.session.add_all(new_orders)
 
     new_offers = []
-    for offer in offers:
+    for offer in raw_data.offers:
         new_offers.append(
             Offer(
                 id = offer['id'],
@@ -101,5 +132,82 @@ def insert_data():
             db.session.add_all(new_offers)
 
 
+@app.route('/users', methods=['GET', 'POST'])
+def users():
+    if request.method == 'GET':
+        res = []
+        for user in User.query.all():
+            res.append(user.to_dict())
+        return jsonify(res)
+    elif request.method == 'POST':
+        user_data = json.loads(request.data)
+        new_user = User(
+                id=user_data['id'],
+                first_name=user_data['first_name'],
+                last_name=user_data['last_name'],
+                age=user_data['age'],
+                email=user_data['email'],
+                role=user_data['role'],
+                phone=user_data['phone'],
+            )
+
+        db.session.add(new_user)
+        db.session.commit()
+        return '', 201
+
+
+@app.route('/users/<int:uid>', methods=['GET', 'PUT', 'DELETE'])
+def user(uid: int):
+    if request.method == 'GET':
+        u = User.query.get(uid)
+        return json.dumps(u.to_dict())
+    elif request.method == 'DELETE':
+        u = User.query.get(uid)
+        db.session.delete(u)
+
+        db.session.commit()
+        return '', 204
+    elif request.method == 'PUT':
+        user_data = json.loads(request.data)
+        u = User.query.get(uid)
+        u.first_name = user_data["first_name"]
+        u.last_name = user_data["last_name"]
+        u.age = user_data["age"]
+        u.email = user_data["email"]
+        u.role = user_data["role"]
+        u.phone = user_data["phone"]
+
+        db.session.add(u)
+        db.session.commit()
+        return "", 204
+
+@app.route('/orders', methods = ['GET', 'POST'])
+def orders():
+    if request.method == 'GET':
+        res = []
+        for order in Order.query.all():
+            res.append(order.to_dict())
+        return jsonify(res)
+    if request.method == 'POST':
+        order_data = json.loads(request.data)
+        new_order = Order(
+            name = order_data['name'],
+            description = order_data['description'],
+            start_date = datetime.strptime(order_data['start_date'], "%m/%d/%Y"),
+            end_date = datetime.strptime(order_data['end_date'], "%m/%d/%Y"),
+            address = order_data['address'],
+            price = order_data['price'],
+            customer_id = order_data['customer_id'],
+            executor_id = order_data['executor_id'],
+        )
+
+        db.session.add(new_order)
+        db.session.commit()
+
+        return '', 204
+
+# @app.route('/orders/<int:oid>', methods=['GET', 'PUT', 'DELETE'])
+
 if __name__ == '__main__':
     main()
+    app.run(debug=True)
